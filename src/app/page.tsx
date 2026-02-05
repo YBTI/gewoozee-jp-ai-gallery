@@ -11,51 +11,73 @@ import { supabase } from '@/lib/supabase';
 export default function Home() {
   const [posts, setPosts] = useState<Post[]>([]);
   const [isLoaded, setIsLoaded] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [editPost, setEditPost] = useState<Post | null>(null);
 
   // Initial Fetch from Supabase
   const fetchPosts = async () => {
-    const { data: postsData, error } = await supabase
-      .from('posts')
-      .select('*, comments(*)')
-      .order('created_at', { ascending: false });
+    try {
+      console.log('Fetching posts from Supabase...');
+      const { data: postsData, error: fetchError } = await supabase
+        .from('posts')
+        .select('*, comments(*)')
+        .order('created_at', { ascending: false });
 
-    if (error) {
-      console.error('Error fetching posts:', error);
-    } else {
-      // Map DB snake_case to frontend camelCase if necessary
-      // Supabase returns camelCase if using the JS client and the table is setup correctly, 
-      // but let's be safe and map if needed.
+      if (fetchError) {
+        console.error('Error fetching posts:', fetchError);
+        setError(`Fetch failed: ${fetchError.message}`);
+        return;
+      }
+
+      if (!postsData) {
+        setPosts([]);
+        setIsLoaded(true);
+        return;
+      }
+
+      // Map DB snake_case to frontend camelCase
       const formattedPosts = postsData.map((p: any) => ({
         ...p,
         fileUrl: p.file_url,
         fileName: p.file_name,
         thumbnailUrl: p.thumbnail_url,
         createdAt: p.created_at,
-        comments: p.comments.map((c: any) => ({
+        comments: (p.comments || []).map((c: any) => ({
           ...c,
           postId: c.post_id,
           createdAt: c.created_at
         }))
       }));
+      
+      console.log('Fetched posts:', formattedPosts.length);
       setPosts(formattedPosts);
+      setError(null);
+    } catch (e: any) {
+      console.error('Unexpected error during fetch:', e);
+      setError(`Unexpected error: ${e.message}`);
+    } finally {
+      setIsLoaded(true);
     }
-    setIsLoaded(true);
   };
 
   useEffect(() => {
     fetchPosts();
 
     // Subscribe to real-time changes
+    // Only works if Replication is enabled for the tables
     const channel = supabase
-      .channel('schema-db-changes')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'posts' }, () => {
+      .channel('public:posts')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'posts' }, (payload) => {
+        console.log('Real-time post change detected:', payload.eventType);
         fetchPosts();
       })
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'comments' }, () => {
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'comments' }, (payload) => {
+        console.log('Real-time comment added:', payload);
         fetchPosts();
       })
-      .subscribe();
+      .subscribe((status) => {
+        console.log('Real-time subscription status:', status);
+      });
 
     return () => {
       supabase.removeChannel(channel);
@@ -63,7 +85,11 @@ export default function Home() {
   }, []);
 
   const handleAddPost = async (newPost: Post) => {
-    const { error } = await supabase.from('posts').insert({
+    // Optimistic Update (Show it immediately while saving)
+    const tempPost = { ...newPost, id: 'temp-' + Date.now() };
+    setPosts([tempPost, ...posts]);
+
+    const { error: insertError } = await supabase.from('posts').insert({
       title: newPost.title,
       url: newPost.url,
       file_url: newPost.fileUrl,
@@ -75,11 +101,19 @@ export default function Home() {
       tags: newPost.tags,
     });
 
-    if (error) console.error('Error adding post:', error);
+    if (insertError) {
+      console.error('Error adding post:', insertError);
+      alert('投稿に失敗しました: ' + insertError.message);
+      // Rollback optimistic update on error
+      fetchPosts();
+    } else {
+      // Real-time or manual fetch will clean up the temp post
+      fetchPosts();
+    }
   };
 
   const handleUpdatePost = async (updatedPost: Post) => {
-    const { error } = await supabase
+    const { error: updateError } = await supabase
       .from('posts')
       .update({
         title: updatedPost.title,
@@ -94,30 +128,42 @@ export default function Home() {
       })
       .eq('id', updatedPost.id);
 
-    if (error) {
-      console.error('Error updating post:', error);
+    if (updateError) {
+      console.error('Error updating post:', updateError);
+      alert('更新に失敗しました: ' + updateError.message);
     } else {
       setEditPost(null);
+      fetchPosts();
     }
   };
 
   const handleDeletePost = async (postId: string) => {
-    const { error } = await supabase.from('posts').delete().eq('id', postId);
-    if (error) console.error('Error deleting post:', error);
+    const { error: deleteError } = await supabase.from('posts').delete().eq('id', postId);
+    if (deleteError) {
+      console.error('Error deleting post:', deleteError);
+      alert('削除に失敗しました: ' + deleteError.message);
+    } else {
+      fetchPosts();
+    }
   };
 
   const handleAddComment = async (postId: string, comment: Comment) => {
-    const { error } = await supabase.from('comments').insert({
+    const { error: commentError } = await supabase.from('comments').insert({
       post_id: postId,
       author: comment.author,
       content: comment.content,
     });
 
-    if (error) console.error('Error adding comment:', error);
+    if (commentError) {
+      console.error('Error adding comment:', commentError);
+      alert('コメントの投稿に失敗しました');
+    } else {
+      fetchPosts();
+    }
   };
 
   return (
-    <main style={{ minHeight: '100vh' }}>
+    <main style={{ minHeight: '100vh', paddingBottom: '4rem' }}>
       <Header />
       
       <div className="container">
@@ -129,7 +175,19 @@ export default function Home() {
           <p className="animate-fade-in" style={{ color: 'var(--text-muted)', fontSize: '1.2rem', maxWidth: '800px', margin: '0 auto' }}>
             作成したアプリのURL、プロンプト、作品。AIで創り出した素晴らしい成果を世界に共有しましょう。
           </p>
-          {!isLoaded && <p style={{ marginTop: '2rem' }}>Loading global gallery...</p>}
+          
+          {error && (
+            <div style={{ marginTop: '2rem', padding: '1rem', background: 'rgba(239, 68, 68, 0.1)', border: '1px solid #ef4444', borderRadius: '8px', color: '#ef4444' }}>
+              <p>⚠️ エラーが発生しました: {error}</p>
+              <button onClick={() => fetchPosts()} className="btn-primary" style={{ marginTop: '1rem', padding: '0.4rem 1rem', fontSize: '0.8rem' }}>再試行</button>
+            </div>
+          )}
+
+          {!isLoaded && !error && (
+            <div style={{ marginTop: '3rem' }}>
+              <div className="animate-pulse" style={{ fontSize: '1.1rem', color: 'var(--primary)' }}>ギャラリーを読み込み中...</div>
+            </div>
+          )}
         </section>
 
         <PostForm 
@@ -139,15 +197,15 @@ export default function Home() {
           onCancelEdit={() => setEditPost(null)}
         />
         
-        <PostGrid 
+        {isLoaded && <PostGrid 
           posts={posts} 
           onAddComment={handleAddComment} 
           onEditPost={setEditPost}
           onDeletePost={handleDeletePost}
-        />
+        />}
       </div>
 
-      <footer className="glass" style={{ marginTop: '4rem', padding: '2rem 0', textAlign: 'center' }}>
+      <footer className="glass" style={{ marginTop: '6rem', padding: '3rem 0', textAlign: 'center' }}>
         <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>
           &copy; 2026 Gewoozee JP AI Gallery. Built for the AI creative community.
         </p>

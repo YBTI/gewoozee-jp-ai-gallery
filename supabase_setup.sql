@@ -1,5 +1,11 @@
+-- Enable the pg_net extension if needed (often used for webhooks)
+-- CREATE EXTENSION IF NOT EXISTS pg_net;
+
+-- Enable uuid-ossp for uuid_generate_v4() support
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+
 -- 1. Create Posts table
-CREATE TABLE posts (
+CREATE TABLE IF NOT EXISTS posts (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   title TEXT,
   url TEXT NOT NULL,
@@ -15,7 +21,7 @@ CREATE TABLE posts (
 );
 
 -- 2. Create Comments table
-CREATE TABLE comments (
+CREATE TABLE IF NOT EXISTS comments (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   post_id UUID REFERENCES posts(id) ON DELETE CASCADE,
   author TEXT NOT NULL,
@@ -27,8 +33,20 @@ CREATE TABLE comments (
 ALTER TABLE posts ENABLE ROW LEVEL SECURITY;
 ALTER TABLE comments ENABLE ROW LEVEL SECURITY;
 
--- 4. Create Policies (Public Read/Write for demo purposes)
--- NOTE: In a production app, you would restrict Write/Delete to authenticated users.
+-- 4. Create Policies
+-- Drop existing policies if they exist to avoid errors on re-run
+DO $$ 
+BEGIN
+    DROP POLICY IF EXISTS "Public Read Posts" ON posts;
+    DROP POLICY IF EXISTS "Public Insert Posts" ON posts;
+    DROP POLICY IF EXISTS "Public Update Posts" ON posts;
+    DROP POLICY IF EXISTS "Public Delete Posts" ON posts;
+    DROP POLICY IF EXISTS "Public Read Comments" ON comments;
+    DROP POLICY IF EXISTS "Public Insert Comments" ON comments;
+EXCEPTION
+    WHEN undefined_object THEN null;
+END $$;
+
 CREATE POLICY "Public Read Posts" ON posts FOR SELECT USING (true);
 CREATE POLICY "Public Insert Posts" ON posts FOR INSERT WITH CHECK (true);
 CREATE POLICY "Public Update Posts" ON posts FOR UPDATE USING (true);
@@ -38,9 +56,15 @@ CREATE POLICY "Public Read Comments" ON comments FOR SELECT USING (true);
 CREATE POLICY "Public Insert Comments" ON comments FOR INSERT WITH CHECK (true);
 
 -- 5. Set up Storage for Gallery Assets
-INSERT INTO storage.buckets (id, name, public) VALUES ('gallery', 'gallery', true);
+-- Check if bucket exists first (Supabase SQL Editor might error if already exists)
+-- This part is usually better done in the Dashboard, but we try:
+-- INSERT INTO storage.buckets (id, name, public) VALUES ('gallery', 'gallery', true) ON CONFLICT (id) DO NOTHING;
 
-CREATE POLICY "Public Access Storage" ON storage.objects FOR SELECT USING (bucket_id = 'gallery');
-CREATE POLICY "Public Upload Storage" ON storage.objects FOR INSERT WITH CHECK (bucket_id = 'gallery');
-CREATE POLICY "Public Update Storage" ON storage.objects FOR UPDATE USING (bucket_id = 'gallery');
-CREATE POLICY "Public Delete Storage" ON storage.objects FOR DELETE USING (bucket_id = 'gallery');
+-- 6. Enable Realtime Replication
+-- This is CRITICAL for the real-time sync to work
+BEGIN;
+  DROP PUBLICATION IF EXISTS supabase_realtime;
+  CREATE PUBLICATION supabase_realtime;
+COMMIT;
+ALTER PUBLICATION supabase_realtime ADD TABLE posts;
+ALTER PUBLICATION supabase_realtime ADD TABLE comments;
