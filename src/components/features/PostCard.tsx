@@ -8,9 +8,10 @@ interface PostCardProps {
   onAddComment: (postId: string, comment: Comment) => void;
   onEditPost: (post: Post) => void;
   onDeletePost: (postId: string) => void;
+  onLikePost: (postId: string) => void;
 }
 
-export default function PostCard({ post, onAddComment, onEditPost, onDeletePost }: PostCardProps) {
+export default function PostCard({ post, onAddComment, onEditPost, onDeletePost, onLikePost }: PostCardProps) {
   const [commentText, setCommentText] = useState('');
   const [authorName, setAuthorName] = useState('');
   const [showPrompt, setShowPrompt] = useState(false);
@@ -103,11 +104,30 @@ export default function PostCard({ post, onAddComment, onEditPost, onDeletePost 
             📎 アプリ/作品を見る
           </a>
 
-          {post.fileName && !post.thumbnailUrl && (
-            <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '0.5rem' }}>
-              📁 添付: {post.fileName}
-            </div>
           )}
+        </div>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginTop: '0.5rem' }}>
+          <button 
+            onClick={() => onLikePost(post.id)}
+            style={{ 
+              display: 'flex', 
+              alignItems: 'center', 
+              gap: '0.4rem', 
+              background: 'rgba(236, 72, 153, 0.1)', 
+              border: '1px solid rgba(236, 72, 153, 0.2)', 
+              color: '#ec4899', 
+              padding: '0.3rem 0.8rem', 
+              borderRadius: '20px', 
+              fontSize: '0.85rem', 
+              cursor: 'pointer',
+              transition: 'all 0.2s ease'
+            }}
+            className="like-button"
+          >
+            <span>❤️</span>
+            <span style={{ fontWeight: 600 }}>{post.likes || 0}</span>
+          </button>
         </div>
 
         {post.prompt && (

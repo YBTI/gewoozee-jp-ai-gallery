@@ -162,6 +162,28 @@ export default function Home() {
     }
   };
 
+  const handleLikePost = async (postId: string) => {
+    // Optimistic Update
+    setPosts(prevPosts => 
+      prevPosts.map(p => p.id === postId ? { ...p, likes: (p.likes || 0) + 1 } : p)
+    );
+
+    const { error: likeError } = await supabase.rpc('increment_likes', { post_id: postId });
+    
+    // If RPC fails (e.g. not created yet), fallback to manual update
+    if (likeError) {
+      console.warn('RPC failed, falling back to manual update:', likeError);
+      const { data: currentPost } = await supabase.from('posts').select('likes').eq('id', postId).single();
+      const newLikes = (currentPost?.likes || 0) + 1;
+      const { error: updateError } = await supabase.from('posts').update({ likes: newLikes }).eq('id', postId);
+      
+      if (updateError) {
+        console.error('Error liking post:', updateError);
+        fetchPosts(); // Rollback
+      }
+    }
+  };
+
   return (
     <main style={{ minHeight: '100vh', paddingBottom: '4rem' }}>
       <Header />

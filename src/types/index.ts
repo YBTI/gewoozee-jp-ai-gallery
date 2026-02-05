@@ -17,6 +17,7 @@ export interface Post {
   prompt?: string;
   author?: string;
   tags?: string[];
+  likes?: number;
   createdAt: string;
   comments: Comment[];
 }

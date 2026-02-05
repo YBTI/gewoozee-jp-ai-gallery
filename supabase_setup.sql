@@ -1,10 +1,7 @@
--- Enable the pg_net extension if needed (often used for webhooks)
--- CREATE EXTENSION IF NOT EXISTS pg_net;
-
--- Enable uuid-ossp for uuid_generate_v4() support
+-- Enable the uuid-ossp for uuid_generate_v4() support
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
--- 1. Create Posts table
+-- 1. Create Posts table (will not overwrite if exists)
 CREATE TABLE IF NOT EXISTS posts (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   title TEXT,
@@ -20,6 +17,14 @@ CREATE TABLE IF NOT EXISTS posts (
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
+-- Safe way to add 'likes' column to an existing table WITHOUT losing data
+DO $$ 
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='posts' AND column_name='likes') THEN
+        ALTER TABLE posts ADD COLUMN likes INTEGER DEFAULT 0;
+    END IF;
+END $$;
+
 -- 2. Create Comments table
 CREATE TABLE IF NOT EXISTS comments (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -34,7 +39,6 @@ ALTER TABLE posts ENABLE ROW LEVEL SECURITY;
 ALTER TABLE comments ENABLE ROW LEVEL SECURITY;
 
 -- 4. Create Policies
--- Drop existing policies if they exist to avoid errors on re-run
 DO $$ 
 BEGIN
     DROP POLICY IF EXISTS "Public Read Posts" ON posts;
@@ -55,16 +59,20 @@ CREATE POLICY "Public Delete Posts" ON posts FOR DELETE USING (true);
 CREATE POLICY "Public Read Comments" ON comments FOR SELECT USING (true);
 CREATE POLICY "Public Insert Comments" ON comments FOR INSERT WITH CHECK (true);
 
--- 5. Set up Storage for Gallery Assets
--- Check if bucket exists first (Supabase SQL Editor might error if already exists)
--- This part is usually better done in the Dashboard, but we try:
--- INSERT INTO storage.buckets (id, name, public) VALUES ('gallery', 'gallery', true) ON CONFLICT (id) DO NOTHING;
-
--- 6. Enable Realtime Replication
--- This is CRITICAL for the real-time sync to work
+-- 5. Enable Realtime Replication
 BEGIN;
   DROP PUBLICATION IF EXISTS supabase_realtime;
   CREATE PUBLICATION supabase_realtime;
 COMMIT;
 ALTER PUBLICATION supabase_realtime ADD TABLE posts;
 ALTER PUBLICATION supabase_realtime ADD TABLE comments;
+
+-- 6. RPC for atomic likes increment
+CREATE OR REPLACE FUNCTION increment_likes(post_id UUID)
+RETURNS void AS $$
+BEGIN
+  UPDATE posts
+  SET likes = COALESCE(likes, 0) + 1
+  WHERE id = post_id;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;

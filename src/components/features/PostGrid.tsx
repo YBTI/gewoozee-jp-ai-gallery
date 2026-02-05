@@ -9,9 +9,10 @@ interface PostGridProps {
   onAddComment: (postId: string, comment: Comment) => void;
   onEditPost: (post: Post) => void;
   onDeletePost: (postId: string) => void;
+  onLikePost: (postId: string) => void;
 }
 
-export default function PostGrid({ posts, onAddComment, onEditPost, onDeletePost }: PostGridProps) {
+export default function PostGrid({ posts, onAddComment, onEditPost, onDeletePost, onLikePost }: PostGridProps) {
   return (
     <div 
       className="section"
@@ -29,6 +30,7 @@ export default function PostGrid({ posts, onAddComment, onEditPost, onDeletePost
             onAddComment={onAddComment} 
             onEditPost={onEditPost}
             onDeletePost={onDeletePost}
+            onLikePost={onLikePost}
           />
         ))
       ) : (
