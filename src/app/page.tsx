@@ -1,66 +1,99 @@
-import Image from "next/image";
-import styles from "./page.module.css";
+'use client';
+
+import React, { useState, useEffect } from 'react';
+import Header from '@/components/features/Header';
+import PostForm from '@/components/features/PostForm';
+import PostGrid from '@/components/features/PostGrid';
+import CheetahIllustration from '@/components/ui/CheetahIllustration';
+import { Post, Comment } from '@/types';
 
 export default function Home() {
+  const [posts, setPosts] = useState<Post[]>([]);
+  const [isLoaded, setIsLoaded] = useState(false);
+  const [editPost, setEditPost] = useState<Post | null>(null);
+
+  // Load from localStorage
+  useEffect(() => {
+    const savedPosts = localStorage.getItem('gewoozee_posts');
+    if (savedPosts) {
+      try {
+        setPosts(JSON.parse(savedPosts));
+      } catch (e) {
+        console.error("Failed to parse posts from localStorage", e);
+      }
+    }
+    setIsLoaded(true);
+  }, []);
+
+  // Save to localStorage
+  useEffect(() => {
+    if (isLoaded) {
+      localStorage.setItem('gewoozee_posts', JSON.stringify(posts));
+    }
+  }, [posts, isLoaded]);
+
+  const handleAddPost = (newPost: Post) => {
+    setPosts([newPost, ...posts]);
+  };
+
+  const handleUpdatePost = (updatedPost: Post) => {
+    setPosts(prevPosts => prevPosts.map(post => 
+      post.id === updatedPost.id ? updatedPost : post
+    ));
+    setEditPost(null);
+  };
+
+  const handleDeletePost = (postId: string) => {
+    setPosts(prevPosts => prevPosts.filter(post => post.id !== postId));
+  };
+
+  const handleAddComment = (postId: string, comment: Comment) => {
+    setPosts(prevPosts => prevPosts.map(post => {
+      if (post.id === postId) {
+        return {
+          ...post,
+          comments: [...post.comments, comment]
+        };
+      }
+      return post;
+    }));
+  };
+
   return (
-    <div className={styles.page}>
-      <main className={styles.main}>
-        <Image
-          className={styles.logo}
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className={styles.intro}>
-          <h1>To get started, edit the page.tsx file.</h1>
-          <p>
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              Learning
-            </a>{" "}
-            center.
+    <main style={{ minHeight: '100vh' }}>
+      <Header />
+      
+      <div className="container">
+        <section className="section" style={{ textAlign: 'center', paddingTop: '4rem', paddingBottom: '2rem' }}>
+          <CheetahIllustration />
+          <h2 className="gradient-text animate-fade-in" style={{ fontSize: '3.5rem', marginBottom: '1rem', lineHeight: 1.1 }}>
+            Showcase Your AI Innovations
+          </h2>
+          <p className="animate-fade-in" style={{ color: 'var(--text-muted)', fontSize: '1.2rem', maxWidth: '800px', margin: '0 auto' }}>
+            作成したアプリのURL、プロンプト、作品。AIで創り出した素晴らしい成果を世界に共有しましょう。
           </p>
-        </div>
-        <div className={styles.ctas}>
-          <a
-            className={styles.primary}
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className={styles.logo}
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className={styles.secondary}
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
-    </div>
+        </section>
+
+        <PostForm 
+          onAddPost={handleAddPost} 
+          onUpdatePost={handleUpdatePost}
+          editPost={editPost}
+          onCancelEdit={() => setEditPost(null)}
+        />
+        
+        <PostGrid 
+          posts={posts} 
+          onAddComment={handleAddComment} 
+          onEditPost={setEditPost}
+          onDeletePost={handleDeletePost}
+        />
+      </div>
+
+      <footer className="glass" style={{ marginTop: '4rem', padding: '2rem 0', textAlign: 'center' }}>
+        <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>
+          &copy; 2026 Gewoozee JP AI Gallery. Built for the AI creative community.
+        </p>
+      </footer>
+    </main>
   );
 }
