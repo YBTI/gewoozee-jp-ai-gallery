@@ -224,6 +224,7 @@ export default function Home() {
           onAddComment={handleAddComment} 
           onEditPost={setEditPost}
           onDeletePost={handleDeletePost}
+          onLikePost={handleLikePost}
         />}
       </div>
 

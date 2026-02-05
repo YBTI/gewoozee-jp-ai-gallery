@@ -103,8 +103,6 @@ export default function PostCard({ post, onAddComment, onEditPost, onDeletePost,
           >
             📎 アプリ/作品を見る
           </a>
-
-          )}
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginTop: '0.5rem' }}>
