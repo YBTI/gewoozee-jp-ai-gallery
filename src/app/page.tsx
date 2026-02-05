@@ -6,57 +6,114 @@ import PostForm from '@/components/features/PostForm';
 import PostGrid from '@/components/features/PostGrid';
 import CheetahIllustration from '@/components/ui/CheetahIllustration';
 import { Post, Comment } from '@/types';
+import { supabase } from '@/lib/supabase';
 
 export default function Home() {
   const [posts, setPosts] = useState<Post[]>([]);
   const [isLoaded, setIsLoaded] = useState(false);
   const [editPost, setEditPost] = useState<Post | null>(null);
 
-  // Load from localStorage
-  useEffect(() => {
-    const savedPosts = localStorage.getItem('gewoozee_posts');
-    if (savedPosts) {
-      try {
-        setPosts(JSON.parse(savedPosts));
-      } catch (e) {
-        console.error("Failed to parse posts from localStorage", e);
-      }
+  // Initial Fetch from Supabase
+  const fetchPosts = async () => {
+    const { data: postsData, error } = await supabase
+      .from('posts')
+      .select('*, comments(*)')
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.error('Error fetching posts:', error);
+    } else {
+      // Map DB snake_case to frontend camelCase if necessary
+      // Supabase returns camelCase if using the JS client and the table is setup correctly, 
+      // but let's be safe and map if needed.
+      const formattedPosts = postsData.map((p: any) => ({
+        ...p,
+        fileUrl: p.file_url,
+        fileName: p.file_name,
+        thumbnailUrl: p.thumbnail_url,
+        createdAt: p.created_at,
+        comments: p.comments.map((c: any) => ({
+          ...c,
+          postId: c.post_id,
+          createdAt: c.created_at
+        }))
+      }));
+      setPosts(formattedPosts);
     }
     setIsLoaded(true);
+  };
+
+  useEffect(() => {
+    fetchPosts();
+
+    // Subscribe to real-time changes
+    const channel = supabase
+      .channel('schema-db-changes')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'posts' }, () => {
+        fetchPosts();
+      })
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'comments' }, () => {
+        fetchPosts();
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, []);
 
-  // Save to localStorage
-  useEffect(() => {
-    if (isLoaded) {
-      localStorage.setItem('gewoozee_posts', JSON.stringify(posts));
+  const handleAddPost = async (newPost: Post) => {
+    const { error } = await supabase.from('posts').insert({
+      title: newPost.title,
+      url: newPost.url,
+      file_url: newPost.fileUrl,
+      file_name: newPost.fileName,
+      thumbnail_url: newPost.thumbnailUrl,
+      description: newPost.description,
+      prompt: newPost.prompt,
+      author: newPost.author,
+      tags: newPost.tags,
+    });
+
+    if (error) console.error('Error adding post:', error);
+  };
+
+  const handleUpdatePost = async (updatedPost: Post) => {
+    const { error } = await supabase
+      .from('posts')
+      .update({
+        title: updatedPost.title,
+        url: updatedPost.url,
+        file_url: updatedPost.fileUrl,
+        file_name: updatedPost.fileName,
+        thumbnail_url: updatedPost.thumbnailUrl,
+        description: updatedPost.description,
+        prompt: updatedPost.prompt,
+        author: updatedPost.author,
+        tags: updatedPost.tags,
+      })
+      .eq('id', updatedPost.id);
+
+    if (error) {
+      console.error('Error updating post:', error);
+    } else {
+      setEditPost(null);
     }
-  }, [posts, isLoaded]);
-
-  const handleAddPost = (newPost: Post) => {
-    setPosts([newPost, ...posts]);
   };
 
-  const handleUpdatePost = (updatedPost: Post) => {
-    setPosts(prevPosts => prevPosts.map(post => 
-      post.id === updatedPost.id ? updatedPost : post
-    ));
-    setEditPost(null);
+  const handleDeletePost = async (postId: string) => {
+    const { error } = await supabase.from('posts').delete().eq('id', postId);
+    if (error) console.error('Error deleting post:', error);
   };
 
-  const handleDeletePost = (postId: string) => {
-    setPosts(prevPosts => prevPosts.filter(post => post.id !== postId));
-  };
+  const handleAddComment = async (postId: string, comment: Comment) => {
+    const { error } = await supabase.from('comments').insert({
+      post_id: postId,
+      author: comment.author,
+      content: comment.content,
+    });
 
-  const handleAddComment = (postId: string, comment: Comment) => {
-    setPosts(prevPosts => prevPosts.map(post => {
-      if (post.id === postId) {
-        return {
-          ...post,
-          comments: [...post.comments, comment]
-        };
-      }
-      return post;
-    }));
+    if (error) console.error('Error adding comment:', error);
   };
 
   return (
@@ -72,6 +129,7 @@ export default function Home() {
           <p className="animate-fade-in" style={{ color: 'var(--text-muted)', fontSize: '1.2rem', maxWidth: '800px', margin: '0 auto' }}>
             作成したアプリのURL、プロンプト、作品。AIで創り出した素晴らしい成果を世界に共有しましょう。
           </p>
+          {!isLoaded && <p style={{ marginTop: '2rem' }}>Loading global gallery...</p>}
         </section>
 
         <PostForm 

@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Post } from '@/types';
+import { supabase } from '@/lib/supabase';
 
 interface PostFormProps {
   onAddPost: (post: Post) => void;
@@ -20,9 +21,11 @@ export default function PostForm({ onAddPost, onUpdatePost, editPost, onCancelEd
     author: '',
     fileName: '',
     thumbnailUrl: '',
+    fileUrl: '',
   });
   const [tagInput, setTagInput] = useState('');
   const [tags, setTags] = useState<string[]>([]);
+  const [uploading, setUploading] = useState(false);
 
   useEffect(() => {
     if (editPost) {
@@ -34,6 +37,7 @@ export default function PostForm({ onAddPost, onUpdatePost, editPost, onCancelEd
         author: editPost.author || '',
         fileName: editPost.fileName || '',
         thumbnailUrl: editPost.thumbnailUrl || '',
+        fileUrl: editPost.fileUrl || '',
       });
       setTags(editPost.tags || []);
       setIsOpen(true);
@@ -51,30 +55,43 @@ export default function PostForm({ onAddPost, onUpdatePost, editPost, onCancelEd
     setTags(tags.filter(tag => tag !== tagToRemove));
   };
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) {
-      setFormData(prev => ({ ...prev, fileName: file.name }));
-      
-      // Generate thumbnail if it's an image
-      if (file.type.startsWith('image/')) {
-        const reader = new FileReader();
-        reader.onloadend = () => {
-          setFormData(prev => ({ ...prev, thumbnailUrl: reader.result as string }));
-        };
-        reader.readAsDataURL(file);
-      } else if (file.type.startsWith('video/')) {
-        // For video, we can't easily generate a thumbnail in pure JS without a canvas/video element
-        // We'll just set a placeholder or skip for now, but user said "アイキャッチ表示"
-        // Let's use a generic video icon as a placeholder thumbnail if it's video
-        setFormData(prev => ({ ...prev, thumbnailUrl: 'video-placeholder' }));
-      }
+    if (!file) return;
+
+    setUploading(true);
+    const fileExt = file.name.split('.').pop();
+    const fileName = `${Math.random().toString(36).substring(2)}.${fileExt}`;
+    const filePath = `uploads/${fileName}`;
+
+    // Upload to Supabase Storage
+    const { error: uploadError } = await supabase.storage
+      .from('gallery')
+      .upload(filePath, file);
+
+    if (uploadError) {
+      console.error('Error uploading file:', uploadError);
+      setUploading(false);
+      return;
     }
+
+    // Get public URL
+    const { data: { publicUrl } } = supabase.storage
+      .from('gallery')
+      .getPublicUrl(filePath);
+
+    setFormData(prev => ({ 
+      ...prev, 
+      fileName: file.name,
+      fileUrl: publicUrl,
+      thumbnailUrl: file.type.startsWith('image/') ? publicUrl : 'video-placeholder'
+    }));
+    setUploading(false);
   };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.url) return;
+    if (!formData.url || uploading) return;
 
     if (editPost) {
       onUpdatePost({
@@ -83,8 +100,9 @@ export default function PostForm({ onAddPost, onUpdatePost, editPost, onCancelEd
         tags: tags.length > 0 ? tags : undefined,
       });
     } else {
+      // Mock ID for client-side state, DB will use UUID
       const newPost: Post = {
-        id: Math.random().toString(36).substr(2, 9),
+        id: '', // Will be assigned by Supabase
         ...formData,
         tags: tags.length > 0 ? tags : undefined,
         createdAt: new Date().toISOString(),
@@ -97,7 +115,7 @@ export default function PostForm({ onAddPost, onUpdatePost, editPost, onCancelEd
   };
 
   const resetForm = () => {
-    setFormData({ title: '', url: '', description: '', prompt: '', author: '', fileName: '', thumbnailUrl: '' });
+    setFormData({ title: '', url: '', description: '', prompt: '', author: '', fileName: '', thumbnailUrl: '', fileUrl: '' });
     setTags([]);
     setTagInput('');
     setIsOpen(false);
@@ -199,11 +217,12 @@ export default function PostForm({ onAddPost, onUpdatePost, editPost, onCancelEd
                 />
               </label>
               <label style={{ flex: 1, fontSize: '0.9rem', color: 'var(--text-muted)' }}>
-                画像/動画アップロード
+                画像/動画アップロード {uploading && '(収集中...)'}
                 <input 
                   type="file" 
                   accept="image/*,video/*"
                   onChange={handleFileChange}
+                  disabled={uploading}
                   style={{ width: '100%', padding: '0.5rem', color: 'var(--text-muted)', marginTop: '0.4rem' }}
                 />
                 {formData.thumbnailUrl && formData.thumbnailUrl !== 'video-placeholder' && (
@@ -215,10 +234,13 @@ export default function PostForm({ onAddPost, onUpdatePost, editPost, onCancelEd
             </div>
 
             <div style={{ display: 'flex', gap: '1rem', marginTop: '1rem' }}>
-              <button type="submit" className="btn-primary" style={{ flex: 1 }}>{editPost ? '更新する' : '投稿する'}</button>
+              <button type="submit" className="btn-primary" disabled={uploading} style={{ flex: 1 }}>
+                {uploading ? 'アップロード中...' : (editPost ? '更新する' : '投稿する')}
+              </button>
               <button 
                 type="button" 
                 onClick={resetForm}
+                disabled={uploading}
                 style={{ flex: 1, padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--glass-border)', background: 'transparent', color: 'white', cursor: 'pointer' }}
               >
                 キャンセル
