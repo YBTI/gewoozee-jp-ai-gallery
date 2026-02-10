@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { Post, Comment } from '@/types';
 
 interface PostCardProps {
@@ -32,21 +32,73 @@ export default function PostCard({ post, onAddComment, onEditPost, onDeletePost,
     setCommentText('');
   };
 
+  const videoRef = useRef<HTMLVideoElement>(null);
+
+  const isVideo = (url: string) => {
+    const videoExtensions = ['.mp4', '.webm', '.ogg', '.mov'];
+    return videoExtensions.some(ext => url.toLowerCase().endsWith(ext)) || url.includes('/uploads/') && !url.match(/\.(jpg|jpeg|png|gif|webp)$/i);
+  };
+
+  const getYouTubeId = (url: string) => {
+    const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*).*/;
+    const match = url.match(regExp);
+    return (match && match[2].length === 11) ? match[2] : null;
+  };
+
+  const handleMouseEnter = () => {
+    if (videoRef.current) {
+      videoRef.current.play().catch(e => console.log('Autoplay blocked:', e));
+    }
+  };
+
+  const handleMouseLeave = () => {
+    if (videoRef.current) {
+      videoRef.current.pause();
+      videoRef.current.currentTime = 0;
+    }
+  };
+
   return (
     <article className="glass-card animate-fade-in" style={{ padding: '0', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
       {/* Eye-catch / Thumbnail */}
       {post.thumbnailUrl && (
-        <div style={{ width: '100%', height: '180px', position: 'relative', background: '#000' }}>
-          {post.thumbnailUrl === 'video-placeholder' ? (
-            <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(139, 92, 246, 0.2)' }}>
-              <span style={{ fontSize: '3rem' }}>🎬</span>
-            </div>
+        <div 
+          style={{ width: '100%', height: '180px', position: 'relative', background: '#000', cursor: 'pointer' }}
+          onMouseEnter={handleMouseEnter}
+          onMouseLeave={handleMouseLeave}
+        >
+          {post.thumbnailUrl === 'video-placeholder' || isVideo(post.fileUrl || '') ? (
+            <video
+              ref={videoRef}
+              src={post.fileUrl}
+              style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+              muted
+              playsInline
+              loop
+              poster={post.thumbnailUrl !== 'video-placeholder' ? post.thumbnailUrl : undefined}
+            />
+          ) : getYouTubeId(post.url) ? (
+            <iframe
+              width="100%"
+              height="100%"
+              src={`https://www.youtube.com/embed/${getYouTubeId(post.url)}?autoplay=0&mute=1&controls=0&modestbranding=1`}
+              title="YouTube video player"
+              frameBorder="0"
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+              style={{ pointerEvents: 'none' }}
+            ></iframe>
           ) : (
             <img 
               src={post.thumbnailUrl} 
               alt={post.title || 'Thumbnail'} 
               style={{ width: '100%', height: '100%', objectFit: 'cover' }} 
             />
+          )}
+          
+          {(isVideo(post.fileUrl || '') || getYouTubeId(post.url)) && (
+            <div style={{ position: 'absolute', bottom: '10px', right: '10px', background: 'rgba(0,0,0,0.6)', padding: '2px 6px', borderRadius: '4px', fontSize: '0.7rem', color: 'white', display: 'flex', alignItems: 'center', gap: '4px' }}>
+              <span>▶</span> VIDEO
+            </div>
           )}
         </div>
       )}
