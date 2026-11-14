@@ -2,6 +2,7 @@
 // ジャンルを追加・変更したい場合はここを編集してください。
 export const GENRES = [
   { id: 'app', label: 'アプリ・Webサービス', icon: '🧩' },
+  { id: 'game', label: 'ゲーム', icon: '🎮' },
   { id: 'image', label: '画像・イラスト', icon: '🎨' },
   { id: 'video', label: '動画', icon: '🎬' },
   { id: 'music', label: '音楽・音声', icon: '🎵' },
