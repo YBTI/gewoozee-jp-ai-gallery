@@ -25,6 +25,14 @@ BEGIN
     END IF;
 END $$;
 
+-- Safe way to add 'genre' column (content genre filter) WITHOUT losing data
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='posts' AND column_name='genre') THEN
+        ALTER TABLE posts ADD COLUMN genre TEXT DEFAULT 'other';
+    END IF;
+END $$;
+
 -- 2. Create Comments table
 CREATE TABLE IF NOT EXISTS comments (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),

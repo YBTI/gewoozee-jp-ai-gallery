@@ -2,6 +2,7 @@
 
 import React, { useState, useRef } from 'react';
 import { Post, Comment } from '@/types';
+import { getGenre } from '@/lib/genres';
 
 interface PostCardProps {
   post: Post;
@@ -132,15 +133,16 @@ export default function PostCard({ post, onAddComment, onEditPost, onDeletePost,
           </div>
         </header>
 
-        {post.tags && post.tags.length > 0 && (
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem' }}>
-            {post.tags.map(tag => (
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem' }}>
+          <span style={{ padding: '0.1rem 0.5rem', borderRadius: '4px', fontSize: '0.7rem', fontWeight: 600, color: 'var(--primary)', background: 'rgba(139, 92, 246, 0.12)', border: '1px solid rgba(139, 92, 246, 0.3)' }}>
+            {getGenre(post.genre).icon} {getGenre(post.genre).label}
+          </span>
+          {post.tags && post.tags.map(tag => (
               <span key={tag} className="glass" style={{ padding: '0.1rem 0.5rem', borderRadius: '4px', fontSize: '0.7rem', color: 'var(--accent)', border: '1px solid rgba(6, 182, 212, 0.2)' }}>
                 #{tag}
               </span>
             ))}
-          </div>
-        )}
+        </div>
 
         <div style={{ flex: 1 }}>
           {post.description && (

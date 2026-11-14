@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { Post } from '@/types';
 import { supabase } from '@/lib/supabase';
+import { GENRES, DEFAULT_GENRE, getGenre } from '@/lib/genres';
 
 interface PostFormProps {
   onAddPost: (post: Post) => void;
@@ -22,6 +23,7 @@ export default function PostForm({ onAddPost, onUpdatePost, editPost, onCancelEd
     fileName: '',
     thumbnailUrl: '',
     fileUrl: '',
+    genre: DEFAULT_GENRE as string,
   });
   const [tagInput, setTagInput] = useState('');
   const [tags, setTags] = useState<string[]>([]);
@@ -38,6 +40,7 @@ export default function PostForm({ onAddPost, onUpdatePost, editPost, onCancelEd
         fileName: editPost.fileName || '',
         thumbnailUrl: editPost.thumbnailUrl || '',
         fileUrl: editPost.fileUrl || '',
+        genre: getGenre(editPost.genre).id,
       });
       setTags(editPost.tags || []);
       setIsOpen(true);
@@ -115,7 +118,7 @@ export default function PostForm({ onAddPost, onUpdatePost, editPost, onCancelEd
   };
 
   const resetForm = () => {
-    setFormData({ title: '', url: '', description: '', prompt: '', author: '', fileName: '', thumbnailUrl: '', fileUrl: '' });
+    setFormData({ title: '', url: '', description: '', prompt: '', author: '', fileName: '', thumbnailUrl: '', fileUrl: '', genre: DEFAULT_GENRE });
     setTags([]);
     setTagInput('');
     setIsOpen(false);
@@ -160,6 +163,21 @@ export default function PostForm({ onAddPost, onUpdatePost, editPost, onCancelEd
                 style={{ width: '100%', padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--glass-border)', background: 'rgba(0,0,0,0.2)', color: 'white', marginTop: '0.4rem' }}
                 placeholder="アプリ名や作品名"
               />
+            </label>
+
+            <label style={{ fontSize: '0.9rem', color: 'var(--text-muted)' }}>
+              ジャンル
+              <select
+                value={formData.genre}
+                onChange={e => setFormData({ ...formData, genre: e.target.value })}
+                style={{ width: '100%', padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--glass-border)', background: 'rgba(0,0,0,0.2)', color: 'white', marginTop: '0.4rem' }}
+              >
+                {GENRES.map(g => (
+                  <option key={g.id} value={g.id} style={{ background: 'var(--secondary)' }}>
+                    {g.icon} {g.label}
+                  </option>
+                ))}
+              </select>
             </label>
 
             <div style={{ fontSize: '0.9rem', color: 'var(--text-muted)' }}>

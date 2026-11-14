@@ -10,9 +10,10 @@ interface PostGridProps {
   onEditPost: (post: Post) => void;
   onDeletePost: (postId: string) => void;
   onLikePost: (postId: string) => void;
+  emptyMessage?: string;
 }
 
-export default function PostGrid({ posts, onAddComment, onEditPost, onDeletePost, onLikePost }: PostGridProps) {
+export default function PostGrid({ posts, onAddComment, onEditPost, onDeletePost, onLikePost, emptyMessage }: PostGridProps) {
   return (
     <div 
       className="section"
@@ -35,7 +36,7 @@ export default function PostGrid({ posts, onAddComment, onEditPost, onDeletePost
         ))
       ) : (
         <div style={{ gridColumn: '1 / -1', textAlign: 'center', padding: '4rem', color: 'var(--text-muted)' }}>
-          <p style={{ fontSize: '1.1rem' }}>投稿がまだありません。最初のAI作品を投稿しましょう！</p>
+          <p style={{ fontSize: '1.1rem' }}>{emptyMessage || '投稿がまだありません。最初のAI作品を投稿しましょう！'}</p>
         </div>
       )}
     </div>

@@ -1,9 +1,11 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import Header from '@/components/features/Header';
 import PostForm from '@/components/features/PostForm';
 import PostGrid from '@/components/features/PostGrid';
+import GenreFilter from '@/components/features/GenreFilter';
+import { DEFAULT_GENRE, getGenre } from '@/lib/genres';
 import CheetahIllustration from '@/components/ui/CheetahIllustration';
 import { Post, Comment } from '@/types';
 import { supabase } from '@/lib/supabase';
@@ -13,6 +15,7 @@ export default function Home() {
   const [isLoaded, setIsLoaded] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [editPost, setEditPost] = useState<Post | null>(null);
+  const [selectedGenre, setSelectedGenre] = useState<string>('all');
 
   // Initial Fetch from Supabase
   const fetchPosts = async () => {
@@ -41,6 +44,7 @@ export default function Home() {
         fileUrl: p.file_url,
         fileName: p.file_name,
         thumbnailUrl: p.thumbnail_url,
+        genre: getGenre(p.genre).id,
         createdAt: p.created_at,
         comments: (p.comments || []).map((c: any) => ({
           ...c,
@@ -99,6 +103,7 @@ export default function Home() {
       prompt: newPost.prompt,
       author: newPost.author,
       tags: newPost.tags,
+      genre: newPost.genre || DEFAULT_GENRE,
     });
 
     if (insertError) {
@@ -125,6 +130,7 @@ export default function Home() {
         prompt: updatedPost.prompt,
         author: updatedPost.author,
         tags: updatedPost.tags,
+        genre: updatedPost.genre || DEFAULT_GENRE,
       })
       .eq('id', updatedPost.id);
 
@@ -184,6 +190,21 @@ export default function Home() {
     }
   };
 
+  // ジャンルごとの件数と絞り込み結果
+  const genreCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    posts.forEach(p => {
+      const id = getGenre(p.genre).id;
+      counts[id] = (counts[id] || 0) + 1;
+    });
+    return counts;
+  }, [posts]);
+
+  const filteredPosts = useMemo(
+    () => selectedGenre === 'all' ? posts : posts.filter(p => getGenre(p.genre).id === selectedGenre),
+    [posts, selectedGenre]
+  );
+
   return (
     <main style={{ minHeight: '100vh', paddingBottom: '4rem' }}>
       <Header />
@@ -219,8 +240,18 @@ export default function Home() {
           onCancelEdit={() => setEditPost(null)}
         />
         
+        {isLoaded && posts.length > 0 && (
+          <GenreFilter
+            selected={selectedGenre}
+            counts={genreCounts}
+            total={posts.length}
+            onSelect={setSelectedGenre}
+          />
+        )}
+
         {isLoaded && <PostGrid 
-          posts={posts} 
+          posts={filteredPosts} 
+          emptyMessage={posts.length > 0 ? 'このジャンルの投稿はまだありません。' : undefined}
           onAddComment={handleAddComment} 
           onEditPost={setEditPost}
           onDeletePost={handleDeletePost}

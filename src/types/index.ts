@@ -17,6 +17,7 @@ export interface Post {
   prompt?: string;
   author?: string;
   tags?: string[];
+  genre?: string; // GENRES の id (src/lib/genres.ts)
   likes?: number;
   createdAt: string;
   comments: Comment[];
