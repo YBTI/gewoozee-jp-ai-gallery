@@ -250,6 +250,7 @@ export default function Home() {
         )}
 
         {isLoaded && <PostGrid 
+          key={selectedGenre}
           posts={filteredPosts} 
           emptyMessage={posts.length > 0 ? 'このジャンルの投稿はまだありません。' : undefined}
           onAddComment={handleAddComment} 

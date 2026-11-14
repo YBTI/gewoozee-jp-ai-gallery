@@ -12,12 +12,12 @@ interface GenreFilterProps {
 
 export default function GenreFilter({ selected, counts, total, onSelect }: GenreFilterProps) {
   const items = [
-    { id: 'all', label: 'すべて', icon: '✨', count: total },
+    { id: 'all', label: 'すべて', icon: '✨', color: '#8b5cf6', count: total },
     ...GENRES.map(g => ({ ...g, count: counts[g.id] || 0 })),
   ];
 
   return (
-    <nav aria-label="ジャンルで絞り込み" style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', justifyContent: 'center' }}>
+    <nav aria-label="ジャンルで絞り込み" style={{ display: 'flex', flexWrap: 'wrap', gap: '0.6rem', justifyContent: 'center' }}>
       {items.map(item => {
         const active = selected === item.id;
         return (
@@ -26,26 +26,12 @@ export default function GenreFilter({ selected, counts, total, onSelect }: Genre
             type="button"
             onClick={() => onSelect(item.id)}
             aria-pressed={active}
-            className={active ? undefined : 'glass'}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '0.4rem',
-              padding: '0.45rem 1rem',
-              borderRadius: '999px',
-              fontSize: '0.85rem',
-              fontWeight: active ? 700 : 500,
-              cursor: 'pointer',
-              color: active ? 'white' : 'var(--text-muted)',
-              background: active ? 'linear-gradient(135deg, var(--primary), var(--primary-glow))' : undefined,
-              border: active ? '1px solid transparent' : undefined,
-              boxShadow: active ? '0 4px 16px rgba(139, 92, 246, 0.35)' : 'none',
-              transition: 'all 0.2s ease',
-            }}
+            className={`genre-chip${active ? ' is-active' : ''}`}
+            style={{ '--c': item.color } as React.CSSProperties}
           >
-            <span>{item.icon}</span>
+            <span className="genre-chip-icon">{item.icon}</span>
             <span>{item.label}</span>
-            <span style={{ fontSize: '0.75rem', opacity: 0.8 }}>({item.count})</span>
+            <span className="genre-chip-count">{item.count}</span>
           </button>
         );
       })}

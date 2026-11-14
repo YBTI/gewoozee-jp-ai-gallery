@@ -3,6 +3,7 @@
 import React from 'react';
 import { Post, Comment } from '@/types';
 import PostCard from './PostCard';
+import Reveal from '@/components/ui/Reveal';
 
 interface PostGridProps {
   posts: Post[];
@@ -19,12 +20,14 @@ export default function PostGrid({ posts, onAddComment, onEditPost, onDeletePost
       className="section"
       style={{ 
         display: 'grid', 
-        gridTemplateColumns: 'repeat(auto-fill, minmax(350px, 1fr))', 
-        gap: '2rem' 
+        gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 320px), 1fr))', 
+        gap: '2rem',
+        paddingTop: '2.5rem'
       }}
     >
       {posts.length > 0 ? (
-        posts.map(post => (
+        posts.map((post, i) => (
+          <Reveal key={post.id} delay={(i % 3) * 90}>
           <PostCard 
             key={post.id} 
             post={post} 
@@ -33,6 +36,7 @@ export default function PostGrid({ posts, onAddComment, onEditPost, onDeletePost
             onDeletePost={onDeletePost}
             onLikePost={onLikePost}
           />
+          </Reveal>
         ))
       ) : (
         <div style={{ gridColumn: '1 / -1', textAlign: 'center', padding: '4rem', color: 'var(--text-muted)' }}>
