@@ -538,6 +538,59 @@ h1, h2, h3 {
   cursor: pointer;
 }
 
+/* ===== Background cursor light & hidden art ===== */
+.cursor-light-layer {
+  --x: -9999px;
+  --y: -9999px;
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.cursor-light {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(520px circle at var(--x) var(--y), rgba(139, 92, 246, 0.16), rgba(6, 182, 212, 0.07) 40%, transparent 70%);
+  opacity: 0;
+  transition: opacity 0.5s ease;
+}
+
+.cursor-light-layer.is-active .cursor-light {
+  opacity: 1;
+}
+
+/* 光の円の中だけイラストが見える */
+.hidden-art {
+  position: absolute;
+  inset: 0;
+  -webkit-mask-image: radial-gradient(230px circle at var(--x) var(--y), #000 0%, rgba(0, 0, 0, 0.55) 50%, transparent 100%);
+  mask-image: radial-gradient(230px circle at var(--x) var(--y), #000 0%, rgba(0, 0, 0, 0.55) 50%, transparent 100%);
+  opacity: 0;
+  transition: opacity 0.5s ease;
+}
+
+.cursor-light-layer.is-active .hidden-art {
+  opacity: 1;
+}
+
+.hidden-tiger {
+  position: absolute;
+  height: auto;
+  user-select: none;
+  opacity: 0.5;
+  transform: rotate(var(--rot)) scaleX(var(--flip));
+  filter: drop-shadow(0 0 6px rgba(139, 92, 246, 0.6));
+  transition: transform 0.5s cubic-bezier(0.3, 1.6, 0.5, 1), opacity 0.3s ease, filter 0.3s ease;
+}
+
+.hidden-tiger.is-lit {
+  opacity: 0.95;
+  transform: rotate(calc(var(--rot) * -0.3)) scaleX(var(--flip)) scale(1.15);
+  filter: drop-shadow(0 0 10px rgba(6, 182, 212, 0.9)) drop-shadow(0 0 26px rgba(139, 92, 246, 0.7));
+}
+
 /* 動きを減らす設定のユーザーにはアニメーションを控える */
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {

@@ -7,6 +7,7 @@ import PostGrid from '@/components/features/PostGrid';
 import GenreFilter from '@/components/features/GenreFilter';
 import { DEFAULT_GENRE, getGenre } from '@/lib/genres';
 import CheetahIllustration from '@/components/ui/CheetahIllustration';
+import CursorLight from '@/components/ui/CursorLight';
 import { Post, Comment } from '@/types';
 import { supabase } from '@/lib/supabase';
 
@@ -206,7 +207,8 @@ export default function Home() {
   );
 
   return (
-    <main style={{ minHeight: '100vh', paddingBottom: '4rem' }}>
+    <main style={{ minHeight: '100vh', paddingBottom: '4rem', position: 'relative', isolation: 'isolate' }}>
+      <CursorLight />
       <Header />
       
       <div className="container">
